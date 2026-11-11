@@ -1,0 +1,206 @@
+{
+  "schema": 1,
+  "purpose": "read-only Chinese study mirror; not executable skills",
+  "files": [
+    {
+      "source": ".agents/skills/dsh-archive-agent-notes/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-archive-agent-notes/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "5500e960a645be6f842fc8506817c3ef4132182edd79804fc5595f68fddba314",
+      "title": "归档 DeepSeek Harness Agent Notes",
+      "translatedUnits": 40
+    },
+    {
+      "source": ".agents/skills/dsh-ci-test-reliability/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-ci-test-reliability/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "58e5de5c9cf7061eb4f39240dfcadc2e2e4a0cbf124f9c268f7e878bbf451dc1",
+      "title": "可靠的 DSH CI 测试",
+      "translatedUnits": 82
+    },
+    {
+      "source": ".agents/skills/dsh-ci-test-reliability/references/ci-flake-diagnosis.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-ci-test-reliability/references/ci-flake-diagnosis.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "9fb8d3a56e9e90331dd2155f5bc55a9bea7d000f7dd2b519a4e59524a97f2b44",
+      "title": "CI 偶发失败诊断",
+      "translatedUnits": 38
+    },
+    {
+      "source": ".agents/skills/dsh-code-review/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-code-review/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "6c862b17bca7d15f13665cfbc7dce9b6456570e42941563178034d69393072a2",
+      "title": "评审 DeepSeek Harness PR",
+      "translatedUnits": 38
+    },
+    {
+      "source": ".agents/skills/dsh-doc/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "f4c1072a5418b281d92342ebcab9700915db8f9d6ec63eb856ac87baec5d9e79",
+      "title": "DeepSeek Harness 文档",
+      "translatedUnits": 83
+    },
+    {
+      "source": ".agents/skills/dsh-doc/references/metadata-links-i18n.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/references/metadata-links-i18n.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "b505cf2de8c91e0ba1b39e16393059ce1d879937531579fd7690fdaaf7edcd3c",
+      "title": "元数据、链接与双语配对",
+      "translatedUnits": 40
+    },
+    {
+      "source": ".agents/skills/dsh-doc/references/review.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/references/review.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "81f5bb876ad13bd2e550953d7c4ff9962d47b5f73d57219932e968029a89a216",
+      "title": "评审标准",
+      "translatedUnits": 37
+    },
+    {
+      "source": ".agents/skills/dsh-doc/references/structure-hierarchy.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/references/structure-hierarchy.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "869ae393be457951c89175ed9a6f02957d013b7b4b9b44785efbbcfead40ca8e",
+      "title": "页面结构与层级",
+      "translatedUnits": 45
+    },
+    {
+      "source": ".agents/skills/dsh-doc/references/style.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/references/style.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "62600401bc7d771e17aaefd93748432153def0502cbc38b9176cdc15cc6167af",
+      "title": "页面风格",
+      "translatedUnits": 30
+    },
+    {
+      "source": ".agents/skills/dsh-doc/references/website-sync.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/references/website-sync.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "6ab2dc43aa43c964350a800304f53d51fcc6280ee882aac2a3223dff3e52bdfc",
+      "title": "网站发布",
+      "translatedUnits": 51
+    },
+    {
+      "source": ".agents/skills/dsh-doc/templates/package-bundle.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/templates/package-bundle.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "9f6751700f4886b85b2b7334f4caa6621dbe815e969d32e94e9af046bc3f2f51",
+      "title": "模板：package-bundle",
+      "translatedUnits": 9
+    },
+    {
+      "source": ".agents/skills/dsh-doc/templates/package-group.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/templates/package-group.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "53cb8a73b3d465e8cc318e530bcbd505f373c64b9f4bdb25d2253d2aab5d0e9a",
+      "title": "模板：package-group",
+      "translatedUnits": 10
+    },
+    {
+      "source": ".agents/skills/dsh-doc/templates/package-library.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/templates/package-library.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "e65883a53950806ec5322b06ebf6dedc43f0c9377f7145e9cdc21e5a60db3993",
+      "title": "模板：package-library",
+      "translatedUnits": 9
+    },
+    {
+      "source": ".agents/skills/dsh-doc/templates/package-reference.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-doc/templates/package-reference.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "b9e75748bd32b40960b51df2549afbe5ed4fb7454f235b134505e9b40d70f103",
+      "title": "模板：package-reference",
+      "translatedUnits": 9
+    },
+    {
+      "source": ".agents/skills/dsh-find-simplifications/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-find-simplifications/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "03d56b6412abfaa770e406d680ee0bd3af2c8dd0499707aba3c0607279f22ff4",
+      "title": "寻找 DeepSeek Harness 简化机会",
+      "translatedUnits": 98
+    },
+    {
+      "source": ".agents/skills/dsh-merging-stacked-prs/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-merging-stacked-prs/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "d7b45f7c56f741e725d369887396f582f65d131c775ae58861d7835ca892bfcd",
+      "title": "合并官方 GitHub PR 栈",
+      "translatedUnits": 41
+    },
+    {
+      "source": ".agents/skills/dsh-pre-push-checks/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-pre-push-checks/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "c822d716c03ac59c71366e4b7bedae60b3f9f17174bc52b5c9eecbb780aa4357",
+      "title": "DSH 推送前检查",
+      "translatedUnits": 53
+    },
+    {
+      "source": ".agents/skills/dsh-prose-standard/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-prose-standard/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "df56be84f9ee917a34055c9e229d06c409bce478de7bb0deb233240c1887f2eb",
+      "title": "DeepSeek Harness 文字标准",
+      "translatedUnits": 49
+    },
+    {
+      "source": ".agents/skills/dsh-prose-standard/references/examples.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-prose-standard/references/examples.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "ea37f63a96458206edc436ee71aa1a89b5219347f74556aa413ba1dfd1246572",
+      "title": "提炼的文字示例",
+      "translatedUnits": 85
+    },
+    {
+      "source": ".agents/skills/dsh-speed-up-perf/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-speed-up-perf/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "f71345f9e7b398b5e31a5fbd842075ad613788660697bdcd7738eb9e4b9cbd56",
+      "title": "提升 DeepSeek Harness 性能",
+      "translatedUnits": 52
+    },
+    {
+      "source": ".agents/skills/dsh-translate-docs/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-translate-docs/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "198f0edaed6322d86761255cedd0f9f572025174a226742a447b7bb11e1904e5",
+      "title": "翻译 DeepSeek Harness 文档",
+      "translatedUnits": 45
+    },
+    {
+      "source": ".agents/skills/dsh-trim-cot-leakage/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-trim-cot-leakage/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "d81b60699eec7413183b4fbb7a26a940bedde2f816dba0eccbfa453549292dcc",
+      "title": "清理推理过程泄漏",
+      "translatedUnits": 30
+    },
+    {
+      "source": ".agents/skills/dsh-trim-cot-leakage/references/examples.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-trim-cot-leakage/references/examples.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "b2e1dc11a783f80db6090bb444898362024b88d2d5987524f33824ffca80ac45",
+      "title": "推理过程泄漏示例",
+      "translatedUnits": 138
+    },
+    {
+      "source": ".agents/skills/dsh-trim-cot-leakage/references/recall-batteries.md",
+      "translation": "study/zh-CN/.agents/skills/dsh-trim-cot-leakage/references/recall-batteries.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "449529dfba146c46b533b14855b2b0ca354f97e99de17cad979bd0106284d497",
+      "title": "召回探针集",
+      "translatedUnits": 22
+    },
+    {
+      "source": ".agents/skills/record-browser-gif/SKILL.md",
+      "translation": "study/zh-CN/.agents/skills/record-browser-gif/SKILL.md",
+      "sourceCommit": "d28e8977ab8f80b32c843d52a76c7766fbb1286e",
+      "sourceSha256": "de9fba80b397eef89000a8916de13107feef59aa302186b2e15f2feeb294756e",
+      "title": "录制浏览器 GIF",
+      "translatedUnits": 60
+    }
+  ]
+}
