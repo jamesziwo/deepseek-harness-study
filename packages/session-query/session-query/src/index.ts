@@ -1,3 +1,4 @@
+// 中文：组合会话历史读取、追踪、过滤及全文搜索的服务定义。
 /**
  * Service Definition for combined session-history reads, traces, filters, and full-text search.
  *
@@ -87,6 +88,8 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
+// 中文：统一的优先存活数据会话查询服务。精确读取、过滤和追踪是与后端无关的具体行为；后端在同一 ctx.sessionQuery 上实现全文观察、协调、排名、游标代次及查询
+// 执行。
 /**
  * Unified live-preferred session query service.
  *
@@ -130,6 +133,7 @@ export abstract class SessionQueryEngine extends Service {
     this._observations = new SessionObservationReader(ctx, preparedSessionCacheSize)
   }
 
+  // 中文：无需持久化列表预检，直接观察精确的存活或已准备 Session。sessionId 为逻辑身份，options 指定取消和投影选择；返回调用方拥有的观察租约。
   /**
    * Observe one exact live or prepared Session without a persistence listing preflight.
    * @param sessionId - logical Session identity.
@@ -143,6 +147,7 @@ export abstract class SessionQueryEngine extends Service {
     return this._observations.read(sessionId, options)
   }
 
+  // 中文：搜索优先存活数据的逻辑语料并按会话分组。request 含查询文本、元数据过滤、页大小和游标；exec 为可选取消控制；按最强匹配事件对会话命中排序。
   /**
    * Search the live-preferred logical corpus and group by session.
    * @param request - query text, metadata filters, page size, and cursor.
@@ -154,6 +159,7 @@ export abstract class SessionQueryEngine extends Service {
     exec?: SessionSearchExecContext,
   ): Promise<SessionSearchPage<SessionSearchHit>>
 
+  // 中文：在一个优先存活数据的逻辑会话中搜索事件。request 含目标、文本、过滤、页大小及游标，exec 为可选取消；返回同一索引代次中的事件命中及目标文件头。
   /**
    * Search events within one live-preferred logical session.
    * @param request - target session, query text, filters, page size, and cursor.
@@ -165,6 +171,7 @@ export abstract class SessionQueryEngine extends Service {
     exec?: SessionSearchExecContext,
   ): Promise<SessionEventSearchPage>
 
+  // 中文：使用优先存活记录列出完整逻辑语料。signal 可取消持久化枚举；返回克隆记录，按确定性的最新优先顺序排列。
   /**
    * List the complete logical corpus using live-preferred records.
    * @param signal - optional cancellation for persistence listing.
@@ -174,6 +181,8 @@ export abstract class SessionQueryEngine extends Service {
     return this._corpus.listSessions(signal)
   }
 
+  // 中文：读取并重放校验完整逻辑会话日志，不将其变成存活会话。sessionId 可存活或已持久化；返回同次观察的克隆文件头及完整原始日志。持久化、头兼容性或重放校验失败时抛
+  // 错。
   /**
    * Read and replay-validate one complete logical session log without making it live.
    * @param sessionId - live or persisted session id to read.
@@ -195,6 +204,7 @@ export abstract class SessionQueryEngine extends Service {
     }
   }
 
+  // 中文：使用与提供方无关的谓词过滤完整逻辑语料。filters 的会话元数据及可用性条件取 AND；signal 可取消持久化枚举；返回匹配克隆记录，确定性最新优先排序。
   /**
    * Filter the complete logical corpus with provider-independent predicates.
    * @param filters - ANDed session metadata and availability clauses.
@@ -209,6 +219,7 @@ export abstract class SessionQueryEngine extends Service {
     return this._filterSessions(ownedFilters, signal)
   }
 
+  // 中文：从优先存活的逻辑会话日志折叠最新标题。sessionId 可存活或已存储，signal 取消来源解析与标题折叠；返回最新标题快照，无标题事件则 undefined。
   /**
    * Fold the latest log-backed title from one live-preferred logical session.
    * @param sessionId - live or persisted session id to read.
@@ -222,6 +233,7 @@ export abstract class SessionQueryEngine extends Service {
     return (await this.readTitleSnapshot(sessionId, signal)).title
   }
 
+  // 中文：从一次语料观察折叠最新标题并返回来源文件头。sessionId 为目标，signal 可取消解析与折叠；返回克隆来源头及可选最新标题。
   /**
    * Fold the latest title and return its source header from one corpus observation.
    * @param sessionId - live or persisted session id to read.
@@ -237,6 +249,8 @@ export abstract class SessionQueryEngine extends Service {
     return result.value
   }
 
+  // 中文：从一次可取消语料观察为去重会话折叠标题，结果保持输入首次出现顺序。操作失败按会话隔离，取消则拒绝整个操作。sessionIds 为待观察 ID，signal 由所有
+  // 读取共享；每个唯一 ID 返回 fulfilled 或 rejected 结果。
   /**
    * Fold titles for unique sessions from one cancellable corpus observation.
    *
@@ -259,6 +273,7 @@ export abstract class SessionQueryEngine extends Service {
     }, signal)
   }
 
+  // 中文：列出逻辑会话的轻量原始日志事件记录。sessionId 优先取存活来源；记录按 seq 升序返回。
   /**
    * List lightweight raw-log event records for one logical session.
    * @param sessionId - live-preferred session id to read.
@@ -269,6 +284,8 @@ export abstract class SessionQueryEngine extends Service {
     return tracing.eventRecords(sessionId, loaded.events)
   }
 
+  // 中文：用与提供方无关的过滤条件扫描第一方语义事件文档。sessionId 优先取存活来源，filters 为 AND 组合的元数据及字面文本条件；返回按 seq 升序的匹
+  // 配文档。
   /**
    * Scan first-party semantic event documents with provider-independent filters.
    * @param sessionId - live-preferred session id to scan.
@@ -299,6 +316,8 @@ export abstract class SessionQueryEngine extends Service {
     return filterSessionEventDocuments(documents, filters)
   }
 
+  // 中文：从一次语料观察读取会话当前完整模型可见内容。sessionId 优先取存活来源；返回克隆头、当前可见内容及原始日志捕获包含的末 seq。来源解析失败或可见内容无效时
+  // 抛错。
   /**
    * Read one session's complete current model surface from one corpus observation.
    * @param sessionId - live-preferred session id to read.
@@ -315,6 +334,8 @@ export abstract class SessionQueryEngine extends Service {
     }
   }
 
+  // 中文：从一次语料观察追踪已知祖先和后代。sessionId 为目标，signal 可取消持久化枚举；返回完整血缘或首个无法解析的父节点。语料解析失败、目标缺失或已知祖先成
+  // 环时抛错。
   /**
    * Trace known ancestry and descendants from one corpus observation.
    * @param sessionId - logical session id to trace.
@@ -328,6 +349,8 @@ export abstract class SessionQueryEngine extends Service {
     return tracing.traceSession(records, sessionId)
   }
 
+  // 中文：追踪事件的直接位置替换及引用来源事件。request 含会话 ID 和 seq，signal 可取消持久来源解析；返回来源头、直接链接及目标位置替换链。解析失败、目
+  // 标缺失或内容／来源校验失败时抛错。
   /**
    * Trace one event's direct positional replacements and cited source events.
    * @param request - target session id and event seq.
@@ -344,6 +367,7 @@ export abstract class SessionQueryEngine extends Service {
     }
   }
 
+  // 中文：读取完整事件及有界原始日志上下文窗口。request 含目标会话、seq 及窗口大小，signal 可取消持久来源解析；返回克隆目标及邻近事件。
   /**
    * Read one full event plus a bounded raw-log context window.
    * @param request - target session/seq and context sizes.

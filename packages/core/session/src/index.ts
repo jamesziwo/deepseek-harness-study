@@ -1,3 +1,4 @@
+// 中文：事件溯源会话服务：只追加日志、内存存储及派生的模型消息历史。持久化由插件负责，订阅 session/event，在 session/flush 排空。
 /**
  * Event-sourced session service: append-only session log, in-memory store, and
  * the derived LLM message history. Persistence is a plugin concern (subscribe
@@ -36,6 +37,8 @@ declare module '@deepseek-ai/cordis' {
   }
 
   interface Events {
+    // 中文：发布会话时的创建宣告。同步抛错可否决并触发配对释放回滚；分发中请求 detach 会延迟执行。返回 Promise 的拒绝只记日志，不能追溯否决同步边界。按所有者智
+    // 能体作用域过滤；session 为刚进入并宣告的会话；不支持作用域静态扫描，模式 emit。
     /**
      * Creation announcement during session publication. A synchronous throw vetoes and rolls
      * back with a paired disposal; detach requested during dispatch is deferred.
@@ -48,6 +51,8 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'session/created'(this: Scoped<Session>, session: Session): void
+    // 中文：已宣告会话离开存储时恰好发出一次，包括发布回滚；创建宣告从未开始的条目不发出。监听器失败记日志并隔离，复用所有者作用域过滤。session 为已不在存储中存活的会话
+    // ；不支持作用域静态扫描，模式 emit。
     /**
      * Emitted once when an announced session leaves the store, including
      * publication rollback, but never for an entry whose creation announcement
@@ -58,6 +63,8 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'session/disposed'(this: Scoped<Session>, session: Session): void
+    // 中文：提交后无需等待的追加事件流。监听器快照在日志 push 前解析，回调在之后运行；观察器失败记日志并隔离，不使已提交追加失败。按智能体所有者作用域过滤；session
+    //  为日志增长的会话，event 与实际记录完全一致；不支持作用域静态扫描，模式 emit。
     /**
      * Post-commit, fire-and-forget append feed. The listener snapshot resolves
      * before the log push, but callbacks run after it; observer failures are
@@ -70,6 +77,8 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'session/event'(this: Scoped<Session>, session: Session, event: SessionEvent): void
+    // 中文：需要等待的并行持久化检查点：所有监听器都运行，调用方等待全部结束，没有 waterfall 否决；复用会话所有者作用域。session 的缓冲事件必须写入持久存储；
+    // 不支持作用域静态扫描，模式 parallel。
     /**
      * Awaited parallel durability checkpoint: every listener runs and the
      * caller awaits all of them, with no waterfall veto. Scope-filtered dispatch
@@ -88,6 +97,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   }
 }
 
+// 中文：原地校验并冻结已脱离原引用的创建文件头。
 /** Validate and freeze one detached creation header in place. */
 function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
@@ -133,6 +143,7 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   return deepFreeze(record as unknown as SessionHeader)
 }
 
+// 中文：原地校验并冻结独占的持久化文件头。
 /** Validate and freeze one exclusively owned persistence header in place. */
 function validateRestoredSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
@@ -144,6 +155,7 @@ function validateRestoredSessionHeader(id: SessionId, input: unknown): SessionHe
   return validateSessionHeader(id, input)
 }
 
+// 中文：对会话发布的创建元数据断开引用、校验并冻结。
 /** Detach, validate, and freeze the creation metadata published by a session. */
 function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHeader {
   const input: unknown = source === undefined
@@ -154,6 +166,8 @@ function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHe
   return validateSessionHeader(id, snapshot)
 }
 
+// 中文：校验独占事件并深冻结其带身份消息，不复制事件。调用方转移的对象图不得被生产者保留，也不得与其他事件共享可变子对象；不能保证独占时用
+// snapshotSessionEvent。event 来自可信边界并独占；返回同一事件及已校验冻结消息。事件局部接口元数据、请求头或消息不变量无效时抛错，不检查历史关系。
 /**
  * Validate an exclusively owned event and deeply freeze its identified message
  * without copying the event. The caller transfers an object graph that no
@@ -180,12 +194,14 @@ export function adoptSessionEvent<T extends SessionEvent>(event: T): T {
       deepFreeze(event.data.message)
       break
     default:
+      // 中文：SessionEventMap 可声明合并扩展，插件自有事件不携带核心消息。
       // SessionEventMap is merge-extensible; plugin-owned events carry no core message.
       break
   }
   return event
 }
 
+// 中文：为单个事件断开引用，同时保持其带身份消息深不可变。event 从查询或持久化边界导入；返回独立事件快照及已校验深冻结消息。
 /**
  * Detach one event while preserving deep immutability for its identified message.
  * @param event - event imported across a query or persistence boundary.
@@ -195,6 +211,7 @@ export function snapshotSessionEvent<T extends SessionEvent>(event: T): T {
   return adoptSessionEvent(structuredClone(event))
 }
 
+// 中文：单次 JSON 实体化后校验固定事件封装。
 /** Validate the fixed event envelope after one-pass JSON materialization. */
 function assertSessionEventEnvelope(value: unknown, index: number): asserts value is SessionEvent {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -238,6 +255,7 @@ function assertSessionEventEnvelope(value: unknown, index: number): asserts valu
   }
 }
 
+// 中文：在种子／加载入口拒绝过时请求头和格式错误消息。
 /** Reject obsolete request headers and malformed messages at the seed/load boundary. */
 function assertCurrentLlmShape(event: Record<string, unknown>, index: number): void {
   const data = event['data']
@@ -275,6 +293,7 @@ function assertCurrentLlmShape(event: Record<string, unknown>, index: number): v
   }
 }
 
+// 中文：不重放内嵌流，只校验恢复的 Session 生命周期逻辑直接使用的字段。
 /** Validate fields used directly by restored Session lifecycle logic without replaying the embedded stream. */
 function assertAssistantSettlementShape(
   data: Record<string, unknown> | undefined,
@@ -292,6 +311,7 @@ function assertAssistantSettlementShape(
 
 const allowedAdapterKeys = new Set(['reasoningEffort', 'maxTokens'])
 
+// 中文：校验从持久请求头导入的适配器默认值标记。
 /** Validate adapter-default markers imported from a durable request header. */
 function assertAdapterDefaults(
   value: unknown,
@@ -311,6 +331,7 @@ function assertAdapterDefaults(
   }
 }
 
+// 中文：载荷中携带带身份消息的四种模型可见内容事件类型。
 /** The four surface event types whose payload carries an identified message. */
 function isMessageEventType(type: unknown): type is SurfaceEventType {
   return type === 'system/message' || type === 'user/message'
@@ -324,6 +345,7 @@ const MESSAGE_ROLE_BY_TYPE: Record<SurfaceEventType, Message['role']> = {
   'tool/result': 'user',
 }
 
+// 中文：仅校验安全重放消息所需的事件特定不变量。
 /** Validate only the event-specific invariants needed to safely replay a message. */
 function assertMessageEventShape(event: Record<string, unknown>, subject: string): void {
   const type = event['type']
@@ -384,6 +406,7 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
   }
 }
 
+// 中文：未知值是否携带当前 provider/model 对。
 /** Whether an unknown value carries the current provider/model pair. */
 function hasProviderModel(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
@@ -394,11 +417,13 @@ function hasProviderModel(value: unknown): boolean {
 
 type SessionCallback = (...args: unknown[]) => unknown
 
+// 中文：解析一份监听器快照，包括 Cordis 内部分发检查。
 /** Resolve one listener snapshot, including Cordis's internal dispatch checks. */
 function collectSessionCallbacks(ctx: Context, args: unknown[]): SessionCallback[] {
   return [...ctx.events.dispatch('emit', args)] as SessionCallback[]
 }
 
+// 中文：调用已解析的只观察监听器快照，逐监听器隔离失败。
 /** Invoke one resolved observe-only listener snapshot with per-listener containment. */
 function invokeContainedSessionObservers(
   ctx: Context,
@@ -419,6 +444,7 @@ function invokeContainedSessionObservers(
   }
 }
 
+// 中文：单个精确存储条目的全部可变生命周期状态。
 /** All mutable lifecycle state for one exact store entry. */
 interface SessionEntry {
   readonly id: SessionId
@@ -432,9 +458,12 @@ interface SessionEntry {
   detach(): void
 }
 
+// 中文：追加路径使用的存储附接，模块私有，保持公开 Session 不依赖存储。
 /** Store attachment for the append path; module-private to keep Session store-agnostic publicly. */
 const attachments = new WeakMap<Session, SessionEntry>()
 
+// 中文：事件溯源会话，即 SessionEvent 的只追加日志。它是普通类而非 Service，存活实例通过 ctx.sessions.create() 创建，脱离存储的
+// 实例通过 create 创建；使用已有日志作为种子可重放或分叉会话。typert 对象类型。
 /**
  * An event-sourced session: an append-only log of {@link SessionEvent}s.
  *
@@ -445,14 +474,18 @@ const attachments = new WeakMap<Session, SessionEntry>()
  */
 export class Session {
   private log: SessionEvent[] = []
+  // 中文：模型可见内容接纳与投影状态的唯一增量维护者。
   /** Single incremental owner of surface acceptance and projection state. */
   private readonly surfaceManager = new SurfaceManager(this.log)
 
+  // 中文：基于会话事件日志的有序模型可见内容。
   /** The ordered surface over this session's event log. */
   get surface(): SessionSurface {
     return this.surfaceManager
   }
 
+  // 中文：脱离原引用且深冻结的创建元数据，包含格式版本、cwd、血缘及是否有分叉历史，由存储通过 ctx.sessions.create() 提供。没有存储文件头时生成带当前
+  //  SESSION_FORMAT_VERSION 的最小文件头，确保 header 始终存在。它不进入事件日志，因为属于存储信息，不是可重放对话状态。
   /**
    * Detached, deep-frozen creation metadata (format version, cwd, lineage,
    * and whether fork history exists). Supplied by the store via `ctx.sessions.create()`. When a
@@ -463,14 +496,20 @@ export class Session {
    */
   readonly header: SessionHeader
 
+  // 中文：从分叉父会话继承的前缀事件数量。
   /** Number of leading events inherited from this Session's fork parent. */
   readonly inheritedEventCount: SessionLogOffset
 
+  // 中文：会话身份，从持久文件头中的唯一副本派生。
   /** The session identity, derived from its durable header's single copy. */
   get id(): SessionId {
     return this.header.id
   }
 
+  // 中文：本进程首次追加的 seq，即构造器种子长度，无种子时为 0。更小 seq 来自重放、分叉或恢复的构造输入，从未经 session/event 发布。此值界定生命周期
+  // 所有权及持久化接管；读取完整规范历史仍从 0 开始。它不同于持久分叉前缀 inheritedEventCount：恢复种子为完整已存日志，而继承数仍保持原分叉值。字段本身
+  // 不持久化，种子会话以 session/end-seed 事件投影它；存储消费者找最后一个此类事件，不一定在当前 seq，因为已有末尾标记不重复添加。进程内优先读字段，标记
+  // 落盘前也准确。若本生命周期追加标记，它占此 seq 且在存储附接前，不发布；否则此 seq 是普通发布写入。
   /**
    * The first seq appended IN THIS PROCESS: the length of the constructor
    * seed (0 without one). Events with smaller seq values entered through
@@ -496,6 +535,8 @@ export class Session {
    */
   readonly firstLiveSeq: SessionLogOffset
 
+  // 中文：校验并快照化借用的种子事件与存储元数据，创建脱离存储的会话。id 为身份，seed 为可选重放／分叉事件，header 为可选元数据，
+  // inheritedEventCount 为种子文件头的精确继承前缀长度；返回独立会话。
   /**
    * Create a detached session by validating and snapshotting borrowed seed
    * events and storage metadata.
@@ -514,6 +555,9 @@ export class Session {
     return new Session(id, seed, header, 'snapshot', inheritedEventCount)
   }
 
+  // 中文：接管独立拥有或深冻结的种子以恢复脱离存储的会话。不复制／冻结事件，而校验运行所需字段、封装、序号连续性、接口转换及文件头；内嵌助手流保持不透明，直到流消费者或存储校
+  // 验器读取。id 为恢复身份，seed 为独占／冻结事件，header 为独占元数据，inheritedEventCount 来自存储，eventState 携带生成种子操
+  // 作的引用共享状态；返回恢复会话。
   /**
    * Restore a detached session by adopting an independently owned or deeply frozen seed.
    * Runtime-required event fields, event envelopes, sequence continuity, surface
@@ -552,6 +596,8 @@ export class Session {
   ) {
     const restoredHeader = mode === 'snapshot' ? undefined : validateRestoredSessionHeader(id, header)
     if (seed !== undefined) {
+      // 中文：按与 append 相同的不变量校验种子，避免重放／分叉创建任何后端都无法存储的日志。每个 data 必须可 JSON 序列化，seq 从 0 连续，符合
+      // seq=log.length；否则错误会延迟为后端拒绝，或导致内存日志与磁盘悄然偏离。
       // Validate the seed to the SAME invariants `append` enforces, so a
       // replay/fork (`ctx.sessions.create(id, { seed })`) cannot construct a
       // live log that no persistence backend could store: each event's `data`
@@ -560,6 +606,7 @@ export class Session {
       // a bad seed would surface only later as a backend rejection or a silent
       // divergence between the live log and disk.
       for (const [index, source] of seed.entries()) {
+        // 中文：种子属于持久化／重放边界，通过一次无损 JSON 遍历校验并分离完整事件。
         // The seed is a persistence/replay boundary: validate and detach the
         // complete event in one lossless-JSON pass.
         const snapshot = mode === 'snapshot' ? snapshotJsonValue(source) : source
@@ -570,6 +617,7 @@ export class Session {
         if (snapshot.seq !== index) {
           throw new Error(`seed event at index ${index} has seq ${snapshot.seq} (expected ${index}); seed must be contiguous from 0`)
         }
+        // 中文：种子与实时追加和全日志折叠使用同一转换逐步接纳；候选进入 log 前先规划，失败不能部分修改模型可见内容。
         // A seed is accepted incrementally through the same transition as a
         // live append and a full-log fold. The candidate is planned before it
         // enters `log`, so a failure cannot partially mutate the surface.
@@ -600,6 +648,7 @@ export class Session {
       throw new Error('seeded session constructor seed must equal its inherited prefix')
     }
     this.inheritedEventCount = inheritedEventCount
+    // 中文：新的带种子子会话总在继承切点拥有一个带标签标记，即使复制前缀已以祖先标记结束。恢复保留该持久标记，只追加普通恢复标记。
     // A fresh seeded child always owns one tagged marker at its inherited cut,
     // even when the copied prefix already ends in an ancestor marker. Restore
     // retains that durable marker and appends only the ordinary resume marker.
@@ -610,9 +659,12 @@ export class Session {
     }
   }
 
+  // 中文：私有只追加日志的缓存不可变完整快照。
   /** Cached immutable full snapshot of the private append-only log. */
   private eventsSnapshot: readonly SessionEvent[] | undefined
 
+  // 中文：返回精确序号处存储的不可变事件；已弃用，现有逻辑可暂缓迁移，但禁止新增调用。seq 为事件序号；不存在时返回 undefined，否则返回已接纳事件。原因见原文链接
+  // 。
   /**
    * Return the immutable event stored at one exact sequence number.
    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
@@ -624,6 +676,8 @@ export class Session {
     return this.log[seq]
   }
 
+  // 中文：实体化半开事件序号区间的不可变快照。完整当前快照复用至下次追加，以前返回的快照在后续追加后仍稳定。已弃用，禁止新增调用。fromSeq 为非负包含起点，默认日志开始
+  // ；toSeqExclusive 为非负排除终点，默认当前末尾；返回所选深冻结事件的冻结数组。
   /**
    * Materialize an immutable snapshot of a half-open event sequence range.
    * A full current snapshot is reused until the next append; every previously
@@ -645,6 +699,7 @@ export class Session {
     return Object.freeze(this.log.slice(fromSeq, toSeqExclusive))
   }
 
+  // 中文：返回分叉继承前缀之后本会话自己的事件，按日志顺序放入新数组。已弃用，现有调用可暂缓迁移，禁止新增调用，详见原文链接。
   /**
    * Return this Session's events after its fork-inherited prefix.
    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
@@ -652,10 +707,12 @@ export class Session {
    * @returns a fresh array containing child-owned events in log order.
    */
   ownEvents(): readonly SessionEvent[] {
+    // 中文：静态检查例外：已弃用读取器委托给已弃用的区间读取。
     // oxlint-disable-next-line typescript/no-deprecated -- Deprecated reader delegates to the deprecated range read.
     return this.snapshotEvents(this.inheritedEventCount)
   }
 
+  // 中文：判断既有事件位置是否在继承前缀之外。seq 为本会话事件位置；事件属于本会话而非父会话时返回 true。
   /**
    * Whether one existing event position is outside the fork-inherited prefix.
    * @param seq - event position in this Session.
@@ -665,11 +722,19 @@ export class Session {
     return seq >= this.inheritedEventCount && seq < this.seq
   }
 
+  // 中文：下一个事件序号始终等于日志长度，符合 seq=log.length 连续性契约。
   /** The next event's sequence number — always the log length (the `seq = log.length` contiguity contract). */
   get seq(): SessionLogOffset {
     return SessionLogOffset(this.log.length)
   }
 
+  // 中文：向日志追加类型化事件，并通过存储拥有的模块私有发布钩子同步通知观察器。热路径不等待 I/O，持久化插件异步缓冲。事件进入日志即提交，监听器失败逐个记日志并隔离，不改
+  // 变返回值或阻止后续监听器。type 为 SessionEventMap 键，data 必须无损 JSON；opts 中 surfaceOp 决定进入有序模型可见内容的方式
+  // ，sourceEventSeqs 引用先前来源事件。产出消息的 SurfaceEventType 必填此元数据，turn/start、assistant/attempt
+  // 等非接口类型编译期禁止提供；助手消息内嵌原始提供方流，不能引用顶层来源事件。返回日志中的事件，含分配的 seq/time 及 data 快照，不是仍可变的调用方输入。
+  // data 或元数据含 BigInt、函数、symbol、undefined、负零、非有限数、循环、稀疏数组或 Map/Set/Date/类实例等特殊对象时抛错；请求头空字
+  // 段、工具错误一致性、标记格式和资格、唯一先前来源引用、位置替换及完整遮蔽覆盖规则违规也抛错。单次迭代读取、校验、复制嵌套值，避免有状态 getter 在校验和存储时给出不
+  // 同值。错误在追加处暴露，不延迟到后端刷盘；同步内部分发校验失败或接纳／发布期间重入追加也在日志变化前拒绝。
   /**
    * Append one typed event to the log and synchronously notify observers via
    * the store-owned, module-private publication hooks. The hot path never blocks
@@ -760,11 +825,16 @@ export class Session {
     }
   }
 
+  // 中文：请求头事件折叠结果的缓存，参见 requestHeader。
   /** Cached fold of the request-header events — see {@link requestHeader}. */
   private headerFold: EpochHeader | undefined
+  // 中文：请求头折叠已消费到的日志位置。
   /** Log position (events consumed) the header fold has reached. */
   private headerFoldSeq = 0
 
+  // 中文：日志最后一个请求头事件后生效的 EpochHeader，即下一请求用于比较的请求头；首个 request/header 前为 undefined。这是
+  // foldRequestHeader(session.snapshotEvents()) 的实时增量形式，每个请求头事件首次遇到时只折叠一次，逐 step 读取成本为新增事
+  // 件数。返回折叠头或 undefined。
   /**
    * The {@link EpochHeader} in force after the log's last header event — the
    * header the NEXT request will be compared against — or undefined before
@@ -775,6 +845,7 @@ export class Session {
    */
   requestHeader(): EpochHeader | undefined {
     if (this.headerFoldSeq < this.log.length) {
+      // 中文：更新时冻结：折叠结果是按引用暴露的会话状态，若消费者原地改动而非构建替代值，会使后续比较偏离日志，因此修改会抛错。
       // Frozen on update: the fold is session state exposed by reference — a
       // consumer mutating it in place (instead of building a replacement)
       // would desync every later comparison against the log, so mutation
@@ -785,10 +856,12 @@ export class Session {
     return this.headerFold
   }
 
+  // 中文：request/context 事件的缓存折叠结果。
   /** Cached fold of `request/context` events. */
   private contextFold: RequestContext | undefined
   private contextFoldSeq = 0
 
+  // 中文：返回最新已解析路由元数据；首个 request/context 之前为 undefined。每个事件只折叠一次，返回不可变路由元数据。
   /**
    * Return the latest resolved route metadata, or `undefined` before the first
    * `request/context` event. Each event is folded once.
@@ -804,13 +877,19 @@ export class Session {
     return this.contextFold
   }
 
+  // 中文：派生消息缓存：冻结的投影，逐个补入尚未处理的节点。
   /** The derived-message cache: frozen projections, extended per unseen node. */
   private derived: Message[] = []
+  // 中文：缓存已投影到的模型可见内容节点位置。
   /** Surface position (nodes projected) the cache has reached. */
   private derivedNodes = 0
+  // 中文：构建缓存时的 SurfaceManager.replaceGeneration。
   /** {@link SurfaceManager.replaceGeneration} the cache was built under. */
   private derivedGeneration = 0
 
+  // 中文：沿 surfaceOp 标记维护的产出消息事件有序序列派生模型历史。该序列是历史唯一来源：无标记的 chunk、轮次边界不进入历史，压缩 replace 从派生过程
+  // 移除被遮蔽节点；逐节点按 deriveEventMessage 投影。每个节点首次遇到时只投影一次，读取成本为新增节点数；replace 改写时重建。每次返回新数组，后续
+  // 追加不改变已持有数组；其中 Message 对象共享且深冻结，内容复用冻结事件数据，无需再次深克隆，也不能修改日志。
   /**
    * Derive the LLM message history by walking the ordered sequences of
    * message-producing events maintained by `surfaceOp` markers. The
@@ -839,10 +918,12 @@ export class Session {
       this.derivedGeneration = generation
     }
     for (const seq of nodes.slice(this.derivedNodes)) {
+      // 中文：可见序列由 this.log 构建，seq 按构造保证总是有效索引；非空断言表达此不变量。
       // Surface sequences are built from this.log — seq is always a valid
       // index by construction. The non-null assertion expresses that invariant.
       // oxlint-disable-next-line typescript/no-non-null-assertion
       const msg = this.deriveEventMessage(this.log[seq]!)
+      // 中文：可见节点属于五种产出消息类型之一，但空内容 assistant/message（例如只有用量的 max-tokens step）派生为 null，不能进入对话记录。
       // A surface node is one of the five message-producing types, but an
       // empty-content assistant/message (a max-tokens step that hosts only
       // usage) derives to null and must not enter the transcript.
@@ -852,6 +933,7 @@ export class Session {
     return [...this.derived]
   }
 
+  // 中文：surface.ts 中纯函数 deriveEventMessage 的实例入口。event 为待投影事件；返回派生消息，不产出消息时返回 null。
   /**
    * Instance face of the pure per-node `deriveEventMessage` export from
    * `surface.ts`.
@@ -863,9 +945,13 @@ export class Session {
   }
 }
 
+// 中文：分叉来源，可以是存活会话对象或其存储中的 ID。
 /** A fork source: either the live session object or its live store id. */
 export type SessionForkSource = Session | SessionId
 
+// 中文：分叉拒绝码：SESSION_NOT_FOUND 表示源 ID 不在实时存储；SESSION_NOT_LIVE 表示对象不是存储中的存活实例；
+// SESSION_ALREADY_EXISTS 表示子 ID 被占用；INVALID_BOUNDARY 表示边界不是现有连续 seq；OPEN_TURN 表示前缀结束于未闭
+// 合轮次中。
 /**
  * Rejection codes for session forking: the fork source id is unknown to the
  * live store (`SESSION_NOT_FOUND`) or names a session object that is not the
@@ -881,6 +967,7 @@ export type SessionForkErrorCode =
   | 'INVALID_BOUNDARY'
   | 'OPEN_TURN'
 
+// 中文：会话分叉拒绝的类型化错误。
 /** Typed error for session fork rejections. */
 export class SessionForkError extends Error {
   constructor(message: string, public readonly code: SessionForkErrorCode) {
@@ -889,6 +976,7 @@ export class SessionForkError extends Error {
   }
 }
 
+// 中文：内存会话存储 ctx.sessions，不在此实现持久化。智能体生命周期为每个已发布会话写句柄附接日志写入器；在该生命周期之外发布的会话不持久化任何内容。
 /**
  * In-memory session store (`ctx.sessions`).
  *
@@ -913,6 +1001,10 @@ export class SessionStore extends Service {
     })
   }
 
+  // 中文：创建由调用 fiber 持有的会话；fiber 释放时停止事件通知并从存储移除。seed 复制事件以重放／分叉；meta 将有效绝对 cwd、种子和父血缘、委托深度
+  // 附为不可变 SessionHeader，存储补 version/id/createdAt。若会话须与循环有序释放、先发布循环结束事件，应使用
+  // prepare+enter+announce 融入智能体自身 effect，而不用本便利方法。id 省略时生成 session-<n>；options 包含种子／头元数据
+  // ；返回已进入并宣告的存活会话。重复 ID、非普通无损 JSON 元数据、无效标量或非绝对 cwd 均抛错。
   /**
    * Create a session owned by the calling fiber: disposing that fiber stops
    * event notification and removes the session from the store. `options.seed`
@@ -936,6 +1028,8 @@ export class SessionStore extends Service {
    */
   create(id?: SessionId, options?: CreateSessionOptions): Session {
     const session = this.prepare(id, options)
+    // 中文：调用 fiber 拥有一个 effect；宣告前先 yield detach，使 session/created 同步抛错时生成器释放已 yield 的资源，回滚附
+    // 接，避免泄漏条目及发布钩子。
     // Single effect owned by the calling fiber. Yield the detach BEFORE
     // announcing so a throwing `session/created` listener rolls the attach back
     // (the generator effect disposes already-yielded disposers on a throw)
@@ -947,6 +1041,10 @@ export class SessionStore extends Service {
     return session
   }
 
+  // 中文：只构建会话，不加入存储：校验 id/cwd 并构造带不可变头的 Session。配合 enter+announce，将会话与智能体生命周期纳入同一个组合
+  // effect，按有序链释放，避免兄弟 effect 竞态提前移除发布钩子、丢失结束事件。id 省略生成 session-<n>；options 含种子／头，带
+  // eventState 时种子独占或共享值深冻结，fromRestore 校验后直接接管；返回未入存储的会话。重复 ID、无效普通无损 JSON 元数据、无效标量或非绝对
+  // cwd 抛错。
   /**
    * Build a session WITHOUT entering it into the store — validate the id/cwd and
    * construct the {@link Session} (with its immutable {@link SessionHeader}).
@@ -989,6 +1087,7 @@ export class SessionStore extends Service {
           )
         case undefined:
           break
+        // 中文：覆盖率例外：封闭联合类型的穷尽检查。
         /* v8 ignore next -- closed-union exhaustiveness guard */
         default:
           assertNever(eventState, 'SessionStore.prepare event state')
@@ -1010,6 +1109,9 @@ export class SessionStore extends Service {
     return Session.create(sessionId, seed, header, options?.inheritedEventCount)
   }
 
+  // 中文：将 prepare 后的会话加入存储，安装私有追加发布钩子并返回移除钩子及条目的 detach 释放器，不发 session/created。调用方先 yield
+  // 释放器再 announce，以便创建监听器抛错可回滚。再次检查重复 ID，因为 prepare 与 enter 之间可穿插任意工作，过期准备对象不能覆盖同 ID 存活会话
+  // ，否则旧释放器会删除真正会话。session 为尚未入存储的准备对象；同步创建监听器内调用 detach 时，移除和释放延迟到创建分发退出；重复 ID 抛错。
   /**
    * Enter a {@link prepare}d session into the store: install the module-private
    * append publication hooks and add it to the store. Returns the DETACH
@@ -1035,6 +1137,7 @@ export class SessionStore extends Service {
   enter(session: Session): () => void {
     const id = session.id
     const carrier = scopeTarget(session, scopeOf(this.ctx))
+    // 中文：这是经过任意未发布准备后权威的冲突检查点，只有同 ID 的一个精确事务能发布。
     // This is the authoritative collision boundary after arbitrary unpublished
     // preparation. Only one exact same-id transaction can publish.
     if (this.store.has(id)) throw new Error(`session "${id}" already exists`)
@@ -1056,6 +1159,7 @@ export class SessionStore extends Service {
     const detach = (): void => {
       if (!entered) return
       entered = false
+      // 中文：生命周期监听器可能持有高级 detach 能力。保持条目和发布钩子存活至同步创建或追加分发退出，再发布配对释放事件。
       // A lifecycle listener may own the advanced detach capability. Keep the
       // entry and its publication hooks live until synchronous creation or append
       // publication unwinds, then publish the paired disposal edge.
@@ -1068,11 +1172,14 @@ export class SessionStore extends Service {
     return detach
   }
 
+  // 中文：移除精确的已进入会话，若已宣告则发出配对释放。
   /** Remove one exact entered session and emit its paired disposal when announced. */
   private detachEntered(entry: SessionEntry): void {
     entry.detachRequested = false
+    // 中文：过期能力不能移除属于后续同 ID 生命周期的观察器或存储。
     // A stale capability cannot remove observers or storage belonging to a
     // later same-id lifecycle.
+    // 中文：覆盖率例外：单次 detach 能力存活期间，enter() 拒绝替换。
     /* v8 ignore next -- enter() rejects replacement while this single-shot detach capability is live. */
     if (this.store.get(entry.id) !== entry) return
     this.store.delete(entry.id)
@@ -1080,6 +1187,8 @@ export class SessionStore extends Service {
     if (entry.announced) this.emitDisposed(entry)
   }
 
+  // 中文：为已 enter 的会话使用当时捕获的上下文载体恰好发出一次 session/created。与 enter 分离，让调用方先 yield detach 以保证回滚
+  // 安全。session 为待宣告会话；非存活或已开始宣告时抛错，包括创建监听器重入调用。
   /** Emit `session/created` exactly once for an {@link enter}ed session (with
    * the carrier {@link enter} captured). Separate from {@link enter} so the
    * caller can yield the detach disposer first (rollback safety — see
@@ -1092,6 +1201,7 @@ export class SessionStore extends Service {
     if (entry.announced || entry.announcing) {
       throw new Error(`session "${entry.id}" was already announced`)
     }
+    // 中文：发出前先标记：Cordis 可能投递部分监听器后抛错，回滚仍须给这次部分创建配对释放，也防止监听器递归产生第二个生命周期事件。
     // Mark before emit: Cordis emit may deliver to earlier listeners and then
     // throw. Rollback must still pair that partial creation with disposal, and
     // a listener cannot recursively create a second lifecycle edge.
@@ -1101,6 +1211,8 @@ export class SessionStore extends Service {
     try {
       const callbacks = collectSessionCallbacks(this.ctx, [entry.carrier, 'session/created', session])
       for (const callback of callbacks) {
+        // 中文：同步异常有意传播并否决发布，已 yield 的 detach 随后发出配对释放。异步函数也可赋给 void 监听器，所以必须观察其返回 Promise；拒绝发生太晚
+        // 无法回滚，应记录而非成为未处理拒绝。
         // Synchronous throws intentionally propagate and veto publication; the
         // yielded detach then emits the paired disposal edge. An async function
         // is nevertheless assignable to a void listener, so observe its returned
@@ -1117,6 +1229,7 @@ export class SessionStore extends Service {
     }
   }
 
+  // 中文：发出配对释放通知，逐监听器隔离失败。
   /** Emit the paired teardown notification with per-listener containment. */
   private emitDisposed(entry: SessionEntry): void {
     const callbackArgs: unknown[] = [entry.session]
@@ -1128,6 +1241,9 @@ export class SessionStore extends Service {
     }
   }
 
+  // 中文：使用 enter 时捕获的上下文载体分发并等待 session/flush 持久化检查点。存储是载体所有者，所有调用方——逐请求屏障、目标轮次空闲检查点、释放排空及
+  // 存储读取前刷入——都须走此唯一入口，而非直接 ctx.parallel。session 为待持久化缓冲事件的会话；全部监听器成功后返回是否至少有一个参与；全体结束后抛出按
+  // 注册顺序首个失败。
   /**
    * Dispatch the awaited `session/flush` durability checkpoint for `session`,
    * with the carrier captured at {@link enter}. THE flush entry point: the
@@ -1149,6 +1265,7 @@ export class SessionStore extends Service {
       try {
         return callback(...callbackArgs)
       } catch (error: unknown) {
+        // 中文：保留监听器精确拒绝值；flush 是调用方负责的失败边界，Cordis 监听器可以抛任意值。
         // Preserve the listener's exact rejection value; flush is a caller-owned
         // failure boundary, and Cordis listeners may throw arbitrary values.
         // oxlint-disable-next-line typescript/prefer-promise-reject-errors
@@ -1160,6 +1277,7 @@ export class SessionStore extends Service {
     return callbacks.length > 0
   }
 
+  // 中文：返回精确存活条目，拒绝已脱离或仅准备的对象。
   /** Return the exact live entry; detached/prepared objects reject. */
   private liveEntryFor(session: Session): SessionEntry {
     const entry = attachments.get(session)
@@ -1169,6 +1287,7 @@ export class SessionStore extends Service {
     return entry
   }
 
+  // 中文：按 id 查找存活会话，找不到返回 undefined。
   /**
    * Look up a live session.
    * @param id - the session id to look up.
@@ -1178,6 +1297,7 @@ export class SessionStore extends Service {
     return this.store.get(id)?.session
   }
 
+  // 中文：按创建顺序返回所有存活会话的新数组，修改数组不影响存储。
   /**
    * All live sessions, in creation order.
    * @returns a fresh array; mutating it does not affect the store.
@@ -1186,6 +1306,8 @@ export class SessionStore extends Service {
     return [...this.store.values()].map(entry => entry.session)
   }
 
+  // 中文：从存活源的稳定前缀创建存活子会话。boundary 是包含的源事件 seq，省略取当前末事件；前缀可结束于轮次间事件，但不能在未闭合轮次内结束。source 为存活
+  // 对象或 ID；空源且省略 boundary 时创建空子会话；childSessionId 可选，省略遵循存储 ID 策略；返回新建存活子会话。
   /**
    * Create a live child session from a stable prefix of a live source.
    * `boundary` is an inclusive source event seq; omitted means the source's
@@ -1218,6 +1340,7 @@ export class SessionStore extends Service {
   }
 
   private _forkSeed(session: Session, requestedBoundary: SessionSeq | undefined): readonly SessionEvent[] {
+    // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     const lastEvent = session.snapshotEvents().at(-1)
     let boundary: SessionSeq
@@ -1241,6 +1364,7 @@ export class SessionStore extends Service {
       )
     }
 
+    // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     const boundaryEvent = session.eventAt(boundary)
     if (boundaryEvent === undefined || boundaryEvent.seq !== boundary) {
@@ -1249,6 +1373,7 @@ export class SessionStore extends Service {
         'INVALID_BOUNDARY',
       )
     }
+    // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     const events = session.snapshotEvents(SessionLogOffset(0), SessionLogOffset(boundary + 1))
     const lastTurnBoundary = events

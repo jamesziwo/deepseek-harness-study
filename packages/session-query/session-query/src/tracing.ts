@@ -1,3 +1,4 @@
+// 中文：一次性的会话血缘和事件关系追踪辅助函数。
 /** One-shot session-lineage and event-relationship tracing helpers. */
 
 import { foldSurface, isSurfaceEvent, snapshotSessionEvent } from '@deepseek-ai/dsh-session'
@@ -23,6 +24,7 @@ interface EventLogAnalysis {
   currentSeqs: SessionSeq[]
 }
 
+// 中文：以一次规范可见内容折叠对原始日志分类。sessionId 为所有者，events 为独立日志；返回按日志升序的轻量记录。
 /**
  * Classify a raw event log with one canonical surface fold.
  * @param sessionId - owner of the event log.
@@ -36,6 +38,7 @@ export function eventRecords(
   return analyzeEventLog(sessionId, events).records
 }
 
+// 中文：校验完整日志后折叠并返回当前模型可见内容。sessionId 用于诊断，events 来自一次语料观察；返回脱离引用的当前可见事件，按折叠顺序排列。
 /**
  * Fold and return the current model surface after validating the whole log.
  * @param sessionId - owner used in query diagnostics.
@@ -49,6 +52,7 @@ export function currentSurfaceEvents(
   const analysis = analyzeEventLog(sessionId, events)
   return analysis.currentSeqs.map((seq) => {
     const event = events[seq]
+    // 中文：覆盖率例外：下面六行中 analyzeEventLog 已校验连续 seq，foldSurface 只返回产出可见内容事件的 seq。
     /* v8 ignore next 6 -- analyzeEventLog validated contiguous seqs and foldSurface returned only surface-event seqs. */
     if (event === undefined || event.seq !== seq || !isSurfaceEvent(event)) {
       throw new SessionQueryError(
@@ -60,6 +64,7 @@ export function currentSurfaceEvents(
   })
 }
 
+// 中文：一次规范折叠和完整日志校验后追踪目标。sessionId 为所有者，events 为独立日志，seq 为目标；返回直接替换及引用来源关系。
 /**
  * Trace one target after one canonical surface fold and whole-log validation.
  * @param sessionId - owner of the event log.
@@ -95,6 +100,7 @@ export function traceEvent(
     if (eventSources(event).includes(seq)) derivedEventSeqs.push(event.seq)
   }
 
+  // 中文：上面的目标检查证明对应索引处有并行记录。
   // The target check above proves the parallel record exists at this index.
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const targetRecord = analysis.records[seq]!
@@ -109,6 +115,7 @@ export function traceEvent(
   }
 }
 
+// 中文：追踪目标已知祖先及递归已知后代。records 为一次观察的完整语料，sessionId 为目标；返回完整或显式部分血缘。
 /**
  * Trace one target's known ancestry and recursively known descendants.
  * @param records - complete logical corpus from one observation.
@@ -186,6 +193,7 @@ function analyzeEventLog(
     folded = foldSurface(events)
   } catch (error: unknown) {
     throw new SessionQueryError(
+      // 中文：覆盖率例外：foldSurface 抛出 Error 实例。
       /* v8 ignore next -- foldSurface throws Error instances */
       `invalid session surface: ${error instanceof Error ? error.message : 'unknown error'}`,
       'SESSION_QUERY_INVALID_SURFACE',
@@ -229,6 +237,7 @@ function buildDescendants(
   const descendants: SessionLineageNode[] = []
   const stack = [{ sessionId, descendants }]
   while (stack.length > 0) {
+    // 中文：长度检查保证帧存在。
     // The length guard proves a frame exists.
     // oxlint-disable-next-line typescript/no-non-null-assertion
     const frame = stack.pop()!
@@ -239,6 +248,7 @@ function buildDescendants(
       frame.descendants.push(node)
     }
     for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      // 中文：循环边界保证索引节点存在。
       // The loop bounds prove this indexed node exists.
       // oxlint-disable-next-line typescript/no-non-null-assertion
       const node = nodes[index]!

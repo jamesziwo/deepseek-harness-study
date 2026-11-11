@@ -1,3 +1,4 @@
+// 中文：逻辑会话和事件文本的纯、后端无关过滤谓词。
 /** Pure provider-independent predicates for logical sessions and event text. */
 
 import type {
@@ -9,6 +10,7 @@ import type {
 } from './types.ts'
 import { SessionQueryError } from './config.ts'
 
+// 中文：以 AND 应用逻辑会话过滤并保持输入顺序。records 为独立记录，filters 中每条条件的列表值内部取 OR；返回满足所有条件的记录。
 /**
  * Apply ANDed logical-session filters while preserving input order.
  * @param records - detached logical-session records to inspect.
@@ -23,6 +25,8 @@ export function filterSessionResults<T extends SessionRecord>(
   return records.filter(record => predicates.every(predicate => predicate(record)))
 }
 
+// 中文：对提取的语义文档应用 AND 事件过滤。documents 来自 buildSessionEventSearchDocuments，filters 为元数据及字面文
+// 本条件；按输入顺序返回满足全部条件的文档。
 /**
  * Apply ANDed event filters to extracted semantic documents.
  * @param documents - semantic documents produced by {@link buildSessionEventSearchDocuments}.
@@ -37,6 +41,7 @@ export function filterSessionEventDocuments<T extends SessionEventSearchDocument
   return documents.filter(document => predicates.every(predicate => predicate(document)))
 }
 
+// 中文：跨异步边界前复制并校验逻辑会话过滤条件。filters 属于调用方；返回独立且已校验的条件。
 /**
  * Copy and validate logical-session filters before an asynchronous boundary.
  * @param filters - caller-owned clauses to materialize.
@@ -67,6 +72,7 @@ export function materializeSessionResultFilters(
   })
 }
 
+// 中文：跨异步边界前复制并校验事件过滤条件。filters 属于调用方；返回独立且已校验的条件。
 /**
  * Copy and validate event filters before an asynchronous boundary.
  * @param filters - caller-owned clauses to materialize.
@@ -97,6 +103,7 @@ export function materializeSessionEventResultFilters(
   })
 }
 
+// 中文：编译不区分大小写、允许灵活空白的字面语义文本匹配。text 为调用方字面文本；返回支持 Unicode 且避免正则注入的表达式。
 /**
  * Compile a literal case-insensitive, whitespace-flexible semantic-text match.
  * @param text - caller-provided literal text.

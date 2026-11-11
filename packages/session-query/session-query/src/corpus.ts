@@ -1,3 +1,4 @@
+// 中文：为 session-query 解析存活／持久化的逻辑语料。
 /** Live/persisted logical-corpus resolution for session-query. */
 
 import type { Context, Fiber } from '@deepseek-ai/cordis'
@@ -8,29 +9,38 @@ import { SessionQueryError } from './config.ts'
 import { readColdSessionLog, type ColdSessionLog } from './cold-read.ts'
 import { assertSessionHeadersCompatible } from './sources.ts'
 
+// 中文：为精确读取选定的独立来源快照。
 /** Detached source selected for one exact read. */
 export interface LogicalSession {
+  // 中文：克隆后的来源文件头。
   /** Cloned source header. */
   header: SessionHeader
+  // 中文：与 header 配对的精确分叉继承事件数。
   /** Exact fork-inherited event count paired with {@link header}. */
   inheritedEventCount: SessionLogOffset
+  // 中文：克隆后的原始事件日志。
   /** Cloned raw event log. */
   events: SessionEvent[]
 }
 
+// 中文：只在一次同步批量投影期间可见的借用来源。
 /** Borrowed source visible only during one synchronous batch projection. */
 export interface LogicalSessionSource {
+  // 中文：与 events 同时选定的文件头，调用方须克隆要保留的输出。
   /** Header selected with `events`; callers must clone retained output. */
   readonly header: SessionHeader
+  // 中文：与 header 同时选定的原始事件，只在本次投影调用期间有效。
   /** Raw events selected with `header`; valid only for the projection call. */
   readonly events: readonly SessionEvent[]
 }
 
+// 中文：批量逻辑语料观察中的单个来源投影结果。
 /** One source-projection result in a batch logical-corpus observation. */
 export type LogicalProjectionResult<Value> =
   | { sessionId: SessionId; status: 'fulfilled'; value: Value }
   | { sessionId: SessionId; status: 'rejected'; reason: unknown }
 
+// 中文：相对于当前挂载的持久化服务解析优先存活的语料。
 /** Resolves a live-preferred corpus against the persistence service mounted now. */
 export class SessionCorpus {
   private _persistence: SessionPersistence | undefined
@@ -44,6 +54,7 @@ export class SessionCorpus {
       const service = childCtx.sessionPersistence
       this._persistence = service
       childCtx.effect(() => () => {
+        // 中文：覆盖率例外：过期可选服务的释放器不能清除替代实例。
         /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
         if (this._persistence === service) this._persistence = undefined
       }, 'sessionQuery.persistenceBinding')
@@ -53,6 +64,7 @@ export class SessionCorpus {
     }, 'sessionQuery.optionalPersistence')
   }
 
+  // 中文：列出完整逻辑语料，存活来源优先并克隆文件头。signal 可取消持久化枚举；返回确定性最新优先排序的记录。
   /**
    * List the complete logical corpus with live precedence and cloned headers.
    * @param signal - optional cancellation for persistence listing.
@@ -79,6 +91,8 @@ export class SessionCorpus {
     return [...records.values()].sort(compareSessions)
   }
 
+  // 中文：加载单个逻辑来源，优先使用脱离原引用的存活快照。已知存活目标不查询持久化，避免可选后端故障令当前内存历史不可读。sessionId 为目标，signal 可取消持久
+  // 来源解析；返回独立文件头和事件。
   /**
    * Load one logical source, preferring a detached live snapshot.
    *
@@ -119,6 +133,8 @@ export class SessionCorpus {
     return snapshot
   }
 
+  // 中文：基于一次持久化枚举立即投影去重逻辑来源。同步投影器在持久读取 worker 领取下个 ID 前运行，完整日志只在调用中借用，不被批次保留。sessionIds 按首
+  // 次出现排序；project 同步折叠并拥有／克隆保留值；signal 由枚举和各读取共享；每个唯一 ID 返回 fulfilled 或 rejected 的投影结果。
   /**
    * Project unique logical sources immediately from one persistence listing.
    *
@@ -211,6 +227,7 @@ export class SessionCorpus {
       Array.from({ length: workerCount }, () => worker()),
     )
     if (signal?.aborted) signal.throwIfAborted()
+    // 中文：覆盖率忽略开始：单 ID 失败在 resolvePersisted 内结算，worker 只会因前述取消而拒绝。
     /* v8 ignore start -- per-id failures settle inside resolvePersisted; workers reject only on abort above */
     for (const settlement of settlements) {
       if (settlement.status === 'rejected') {
@@ -218,6 +235,7 @@ export class SessionCorpus {
         throw reason
       }
     }
+    // 中文：结束覆盖率忽略区间。
     /* v8 ignore stop */
     signal?.throwIfAborted()
     return orderedResults(ids, resolved)
@@ -236,6 +254,7 @@ function projectSource<Value>(
     signal?.throwIfAborted()
     return { sessionId, status: 'fulfilled', value }
   } catch (reason: unknown) {
+    // 中文：覆盖率例外：同步投影器没有向外让出执行权的取消窗口。
     /* v8 ignore next -- the synchronous projector has no external cancellation yield */
     if (signal?.aborted) signal.throwIfAborted()
     return { sessionId, status: 'rejected', reason }
@@ -243,6 +262,7 @@ function projectSource<Value>(
 }
 
 function sourceLive(session: Session): LogicalSessionSource {
+  // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
   return { header: session.header, events: session.snapshotEvents() }
 }
@@ -299,6 +319,7 @@ function snapshotLive(session: Session): LogicalSession {
   return {
     header: structuredClone(session.header),
     inheritedEventCount: session.inheritedEventCount,
+    // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     events: session.snapshotEvents().map(event => structuredClone(event)),
   }

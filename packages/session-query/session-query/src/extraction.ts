@@ -1,9 +1,13 @@
+// 中文：供 session-query 消费者使用的第一方语义文本提取。
 /** First-party semantic text extraction for session-query consumers. */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+// 中文：仅类型导入，包含后文消费的第一方 todo 事件。
 // Type-only: includes the first-party todo event consumed below.
 import type {} from '@deepseek-ai/dsh-tool-todo'
 
+// 中文：从单个第一方会话事件提取可搜索语义文本。结构边界、内嵌原始流、请求封装及未知声明合并事件不贡献文本。event 为待检查事件；返回换行连接文本，不可搜索时为空字符串
+// 。
 /**
  * Extract searchable semantic text from one first-party session event.
  *
@@ -36,6 +40,7 @@ export function extractSessionEventText(event: SessionEvent): string {
     case 'assistant/attempt':
     case 'request/header':
       return ''
+    // 中文：SessionEventMap 可合并扩展；未知事件在具体第一方消费者定义语义之前保持不可搜索。
     // SessionEventMap is merge-extensible. Unknown events remain
     // non-searchable until a concrete first-party consumer defines semantics.
     default:
@@ -54,6 +59,7 @@ function turnEndText(reason: SessionEvent<'turn/end'>['data']['reason']): string
       return reason.kind
     case 'completed':
       return ''
+    // 中文：TurnEndReasonMap 可合并扩展；未知结果暂不纳入，直到其所有者定义哪些详情是语义而非结构数据。
     // TurnEndReasonMap is merge-extensible. Unknown outcomes stay out until
     // their owner defines which detail is semantic rather than structural.
     default:
@@ -77,6 +83,7 @@ function blockText(block: SessionContentBlock): string[] {
       return [block.name, block.arguments]
     case 'tool-result':
       return block.content.flatMap(blockText)
+    // 中文：ContentBlockMap 可合并扩展；未知块不会仅因载荷含字符串就变为可搜索。
     // ContentBlockMap is merge-extensible. Unknown blocks do not become
     // searchable merely because their payload happens to contain strings.
     default:

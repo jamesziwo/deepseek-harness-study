@@ -1,3 +1,4 @@
+// 中文：共享事件元数据及语义文档投影。
 /** Shared event metadata and semantic-document projection. */
 
 import { foldSurface } from '@deepseek-ai/dsh-session'
@@ -6,6 +7,7 @@ import type { SessionEventRecord, SessionEventSearchDocument, SessionEventSurfac
 import { SessionQueryError } from './config.ts'
 import { extractSessionEventText } from './extraction.ts'
 
+// 中文：将原始日志投影为感知模型可见状态的轻量事件记录。sessionId 为日志所有者，events 为完整连续日志；每个事件一条记录，按 seq 升序。
 /**
  * Project a raw log into lightweight surface-aware event records.
  * @param sessionId - session that owns the log.
@@ -26,6 +28,7 @@ export function buildSessionEventRecords(
   }))
 }
 
+// 中文：为完整原始日志构建第一方语义文档。sessionId 为所有者，events 为完整连续日志；返回 seq 升序的可搜索文档，省略结构性事件。
 /**
  * Build first-party semantic documents for one complete raw event log.
  * @param sessionId - session that owns the log.
@@ -59,6 +62,7 @@ function classifySurface(events: readonly SessionEvent[]): Map<SessionSeq, Sessi
     folded = foldSurface(events)
   } catch (error: unknown) {
     throw new SessionQueryError(
+      // 中文：覆盖率例外：foldSurface 抛出 Error 实例。
       /* v8 ignore next -- foldSurface throws Error instances */
       `invalid session surface: ${error instanceof Error ? error.message : 'unknown error'}`,
       'SESSION_QUERY_INVALID_SURFACE',

@@ -1,15 +1,19 @@
+// 中文：可丢弃会话全文读取模型的 SQLite schema。
 /** SQLite schema for the disposable session full-text read model. */
 
 import type { DatabaseSync } from 'node:sqlite'
 import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
+// 中文：当前派生索引 schema 版本，不兼容版本原地重置。
 /** Current derived-index schema version. Incompatible versions reset in place. */
 export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 8
 
+// 中文：SQLite 应用 ID，用于防止派生索引重置误伤其他数据库。
 /** SQLite application id protecting unrelated databases from derived resets. */
 export const SESSION_QUERY_SQLITE_APPLICATION_ID = 0x44534851
 
+// 中文：支持的 SQLite 日志模式。
 /** Supported SQLite journal modes. */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 
@@ -24,6 +28,7 @@ const DERIVED_USER_TABLES = new Set([
   'persisted_docs_config',
 ])
 
+// 中文：以排他创建方式创建缺失数据库文件，仅所有者可访问。已有文件保留权限，除 EEXIST 之外的错误传播。
 /**
  * Exclusively create a missing database file with owner-only permissions.
  * Existing files retain their modes, and errors other than `EEXIST` propagate.
@@ -37,6 +42,8 @@ async function createDatabaseFile(path: string): Promise<void> {
   }
 }
 
+// 中文：打开、校验并初始化持久及连接局部 schema。path 为专用派生索引路径或 :memory:，缺失路径以仅所有者权限创建；journalMode 已校验；返回搜
+// 索服务拥有的初始化数据库句柄。
 /**
  * Open, validate, and initialize persistent and connection-local schemas.
  * @param path - dedicated derived-index path or `:memory:`; missing filesystem paths are created owner-only.
@@ -65,6 +72,7 @@ export async function openSearchDatabase(path: string, journalMode: JournalMode)
       assertDerivedUserTables(actual, userTables)
       if (version !== SESSION_QUERY_SQLITE_SCHEMA_VERSION) resetDerivedSchema(db, userTables)
     }
+    // 中文：确认不是其他应用数据库或规范数据文件后才执行修改型 pragma。journalMode 是已校验封闭联合，不是调用方控制的 SQL。
     // Apply mutating pragmas only after refusing foreign or canonical files.
     // journalMode is a validated closed union, not caller-controlled SQL.
     db.exec(`PRAGMA journal_mode = ${journalMode.toUpperCase()}`)

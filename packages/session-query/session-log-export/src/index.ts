@@ -1,3 +1,4 @@
+// 中文：会话日志下载命令及宿主拥有的流式路由。
 /** Session-log download command and Host-owned streaming route. */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -39,15 +40,19 @@ export type {
 export const name = 'session-log-download'
 export const inject = ['commands', 'connection']
 
+// 中文：传输迁移后保留的稳定浏览器下载路径。
 /** Stable browser download path retained across the transport migration. */
 export const SESSION_LOG_EXPORT_PATH = '/api/session.export'
 
+// 中文：会话日志归档策略。
 /** Session-log archive policy. */
 export interface Config {
+  // 中文：每个 ZIP 条目的 DEFLATE 压缩级别，默认 6。
   /** DEFLATE level for each ZIP entry. @default 6 */
   readonly compressionLevel?: SessionLogCompressionLevel
 }
 
+// 中文：校验会话日志归档配置。
 /** Validate Session-log archive configuration. */
 export const Config: Schema<Config> = Schema.object({
   compressionLevel: Schema.number().step(1).min(0).max(9)
@@ -70,6 +75,7 @@ const REQUESTED: CommandResult = {
   text: 'Session log download requested.',
 }
 
+// 中文：注册仅 Web 使用的 /export 命令及需认证的 ZIP 下载路由。ctx 为带人工命令注册表的宿主上下文，config 为已解析压缩策略。
 /**
  * Register the Web-only `/export` command and authenticated ZIP download route.
  * @param ctx - Host context carrying the human-command registry.
@@ -141,6 +147,7 @@ async function sessionLogExportResponse(
     request.signal.throwIfAborted()
   } catch {
     request.signal.throwIfAborted()
+    // 中文：根准备失败（flush、open 或 read）时返回 500，不回显可能携带宿主绝对路径的错误，避免暴露到浏览器错误栏。
     // Root preparation failure (flush, open, or read): answer 500 without
     // echoing the error, which may carry absolute host paths into the
     // browser error bar.

@@ -1,3 +1,4 @@
+// 中文：基于优先存活语料和 SQLite FTS5 的具体会话查询服务。
 /**
  * Concrete session-query service with SQLite FTS5 over the live-preferred corpus.
  *
@@ -65,37 +66,48 @@ export {
   type JournalMode,
 } from './schema.ts'
 
+// 中文：启动上下文槽位，保存启动器拥有的本进程派生查询索引绝对路径。
 /** Boot-context slot for a launcher-owned absolute path to this process's derived query index. */
 export const SESSION_QUERY_SQLITE_PATH_KEY = 'launcherSessionQueryPath'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
+    // 中文：启动器拥有的本进程可丢弃派生查询索引绝对路径。
     /** Launcher-owned absolute path to this process's disposable derived query index. */
     launcherSessionQueryPath?: string
   }
 }
 
+// 中文：默认结果页大小。
 /** Default result page size. */
 export const SESSION_QUERY_SQLITE_DEFAULT_LIMIT = 20
+// 中文：接受的最大结果页大小。
 /** Maximum accepted result page size. */
 export const SESSION_QUERY_SQLITE_MAX_LIMIT = 100
+// 中文：默认片段最大长度，单位 Unicode 码点。
 /** Default maximum snippet length in Unicode code points. */
 export const SESSION_QUERY_SQLITE_SNIPPET_CHARS = 240
 
+// 中文：来源一次临时变化可重试，反复变化则失败，避免独占队列。
 // One transient source change gets a retry; repeated churn fails rather than monopolizing the queue.
 const STABLE_OBSERVATION_ATTEMPTS = 2
 
+// 中文：SQLite 模块／句柄打开时机；never 完全禁用全文搜索。
 /** SQLite module/handle opening phase; `never` disables full-text search entirely. */
 export type OpenAt = 'startup' | 'first-search' | 'never'
 
+// 中文：由 SQLite 全文搜索支持的组合会话查询配置。
 /** Combined session-query configuration backed by SQLite full-text search. */
 export interface Config extends SessionQueryConfig {
+  // 中文：专用派生索引路径，支持 :memory: 临时索引。在 POSIX 上以仅所有者权限创建缺失目录和数据库文件，保留已有权限模式。
   /**
    * Dedicated derived-index path; `:memory:` is supported for ephemeral
    * indexes. Missing directories and database files are created owner-only on
    * POSIX filesystems; existing modes are preserved.
    */
   path: string
+  // 中文：在服务激活或首次搜索时打开 SQLite；never 禁用全文搜索，但继承的精确读取、过滤和追踪仍可用。searchSessions/searchEvents 报
+  // SESSION_QUERY_SEARCH_DISABLED，SQLite 从不导入或打开。默认 startup。
   /**
    * Open the SQLite module and handle at service activation or the first
    * search, or `never` to disable full-text search: the inherited exact
@@ -104,16 +116,22 @@ export interface Config extends SessionQueryConfig {
    * never imported or opened. Defaults to `startup`.
    */
   openAt?: OpenAt
+  // 中文：SQLite 日志模式，默认 wal。
   /** SQLite journal mode. Defaults to `wal`. */
   journalMode?: JournalMode
+  // 中文：请求省略 limit 时的页大小，最大 Number.MAX_SAFE_INTEGER - 1，默认 20。
   /** Page size when a request omits `limit`. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 20. */
   defaultLimit?: number
+  // 中文：接受的最大页大小，最大 Number.MAX_SAFE_INTEGER - 1，默认 100。
   /** Largest accepted page size. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 100. */
   maxLimit?: number
+  // 中文：片段最大长度，单位 Unicode 码点，默认 240。
   /** Maximum snippet length in Unicode code points. Defaults to 240. */
   snippetChars?: number
+  // 中文：继承的批量读取中持久日志最大并发读取数，默认 4。
   /** Maximum concurrent persisted-log reads in one inherited batch read. Defaults to 4. */
   persistedReadConcurrency?: number
+  // 中文：继承读取器保留复用的冷准备 Session 观察最大数，默认 5。
   /** Maximum cold prepared-Session observations the inherited reader retains for reuse. Defaults to 5. */
   preparedSessionCacheSize?: number
 }
@@ -199,6 +217,7 @@ interface CursorPayload {
   offset: number
 }
 
+// 中文：组合 ctx.sessionQuery 服务的具体 SQLite 实现所有者。
 /** Concrete SQLite owner of the combined `ctx.sessionQuery` service. */
 export class SqliteSessionQueryEngine extends SessionQueryEngine {
   static override inject = ['sessions']
@@ -223,6 +242,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       .default(SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE),
   })
 
+  // 中文：已校验并应用默认值的后端配置。
   /** Validated and defaulted backend configuration. */
   readonly config: ResolvedConfig
 
@@ -240,6 +260,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   private readonly _optionalPersistenceFiber: Fiber
 
   constructor(ctx: Context, config: Config) {
+    // 中文：赋值表达式在基类构造器注册 ctx.sessionQuery 前求值，之后保留同一已校验值。
     // The assignment expression resolves before the base constructor can
     // register `ctx.sessionQuery`; keep that same validated value afterward.
     super(ctx, config = resolveConfig(config))
@@ -249,6 +270,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       const binding = { identity: Symbol(), service }
       this._persistenceBinding = binding
       childCtx.effect(() => () => {
+        // 中文：覆盖率例外：过期可选服务的释放器不能清除替代实例。
         /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
         if (this._persistenceBinding !== binding) return
         this._persistenceBinding = { identity: Symbol() }
@@ -260,6 +282,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     ctx.effect(() => async () => this.close(), 'sessionQuerySqlite.close')
   }
 
+  // 中文：仅当激活阶段拥有配置要求的就绪边界时才提前打开。
   /** Open eagerly only when activation owns the configured readiness boundary. */
   protected async [Service.init](): Promise<void> {
     if (this.config.openAt === 'startup') await this._ensureReady(undefined)
@@ -324,12 +347,14 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     })
   }
 
+  // 中文：所有已接受操作达到静止后关闭数据库。
   /** Close the database after every accepted operation reaches quiescence. */
   close(): Promise<void> {
     this._closePromise ??= this._close()
     return this._closePromise
   }
 
+  // 中文：openAt 为 never 时，在任何请求规范化或 SQLite 工作之前拒绝全文调用，确保禁用部署不导入 node:sqlite、不打开索引、不观察来源。
   /**
    * Refuse full-text calls under `openAt: 'never'` before any request
    * normalization or SQLite work, so a disabled deployment never imports
@@ -350,6 +375,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       try {
         await this._ready
       } catch {
+        // 中文：打开过程已经关闭部分创建的句柄，释放只需等待。
         // Opening already closed a partially-created handle; disposal only waits.
       }
     }
@@ -455,6 +481,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         began = true
         for (const row of persistentDeletes) this._deleteSession('persisted', row.id as SessionId)
         for (const entry of persistentChanges) {
+          // 中文：覆盖率例外：观察会加载每个修订不同的条目。
           /* v8 ignore next -- observation loads every entry whose revision differs */
           if (entry.loaded === undefined) throw new Error(`missing loaded revision for session "${entry.header.id}"`)
           this._replacePersistedSession(entry.loaded, entry.revision, nextMainGeneration)
@@ -468,8 +495,11 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         }
         db.exec('COMMIT')
       } catch (error: unknown) {
+        // 中文：覆盖率例外：BEGIN 失败时没有事务可回滚，通用包装器仍报告失败。
         /* v8 ignore next -- a BEGIN failure has no transaction to roll back; the common wrapper still reports it. */
         if (began) {
+          // 中文：覆盖率例外：下面五行的 ROLLBACK 失败需要 SQLite 双重故障；原始失败仍是可处理原因。
+          // 中文：原始 SQLite 失败仍是可处理原因。
           /* v8 ignore next 5 -- ROLLBACK failure requires a SQLite double fault; the original failure remains actionable. */
           try {
             db.exec('ROLLBACK')
@@ -512,6 +542,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
           persisted = materializePersistenceSnapshots(before)
           for (const entry of persisted.values()) {
             if (canReuseIndexed && indexed.get(entry.header.id)?.revision === entry.revision) continue
+            // 中文：跳过已被存活所有者覆盖的工作。冷读取不修改存储，中断轮次只在内存补齐，因此检查后新附接的所有者不会造成副作用；后面的存活成员重试确保返回观察优先取存活来源。
             // Skip work already shadowed by a live owner. The cold read is
             // non-mutating (interrupted turns are balanced in memory only), so
             // an owner attaching after this check cannot cause side effects;
@@ -662,6 +693,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       offset,
     ]
     assertPortableBindingCount(bindings.length)
+    // 中文：浏览器 fixture 在 packages/client/connection/src/client/fixture.ts 镜像这些排名键，两处须一起更新。
     // The browser fixture mirrors these rank keys in
     // `packages/client/connection/src/client/fixture.ts`; update both together.
     return this._requireDb().prepare(`
@@ -764,6 +796,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   }
 
   private _requireDb(): DatabaseSync {
+    // 中文：覆盖率例外：调用方会等待 _ready，此处保护生命周期误用。
     /* v8 ignore next -- callers await `_ready`; this guards lifecycle misuse */
     if (this._db === undefined) throw indexClosed()
     return this._db
@@ -774,6 +807,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   }
 }
 
+// 中文：两个会话 upsert 绑定的公共头列，顺序与各自 INSERT 一致，语句只在其后追加部分不同。header 为待写头；返回每个头列对应的绑定值。
 /**
  * The header columns both session upserts bind, in the order their INSERT
  * lists them. The two statements differ only in what they append after these.
@@ -871,6 +905,7 @@ function selectedDocumentsParams(query: string, persistenceVisible: boolean): Ar
 }
 
 function observeLive(session: Session): ObservedSession {
+  // 中文：静态检查例外：读取现有 Session 历史，迁移延后。
   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
   return observeSession(session.header, session.inheritedEventCount, session.snapshotEvents())
 }

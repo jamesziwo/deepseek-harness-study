@@ -1,3 +1,6 @@
+// 中文：面向模型的 workflow 工具，运行分发子代理的 JavaScript 编排脚本并返回最终值。它拥有模型 schema 和运行生命周期，解析、执行、上限与取消位
+// 于 ctx.workflowEngine 之后，因此可替换更严格引擎而不改变模型接口。执行等待 run.result 且始终 dispose；非 completed 转为
+// 工具错误，后台收集尚未实现。呈现为仅依赖参数、以 meta.name 为标题的通用卡片。显式请求才使用的指导注册在工具自己的提示段落，而非部署角色描述。
 /**
  * The model-facing `workflow` tool: run a JavaScript orchestration script that fans out
  * subagents, and return the script's final value. It owns the model-facing schema and run lifecycle; script
@@ -28,10 +31,13 @@ import type {
 export const name = 'tool-workflow'
 export const inject = ['tools', 'workflowEngine', 'systemPrompt']
 
+// 中文：配置：模型可见工具名及结果渲染上限。
 /** Config: the model-facing tool name plus result rendering caps. */
 export interface Config {
+  // 中文：注册到模型的工具名，默认 workflow。
   /** The model-facing tool name to register (default `workflow`). */
   toolName?: string
+  // 中文：渲染结果字符上限，默认 50000；更长 JSON 值截断并附提示。
   /** Rendered-result ceiling, in characters: a longer JSON value is truncated with a notice (default 50000). */
   maxResultChars?: number
 }
@@ -56,6 +62,7 @@ interface ToolWorkflowRecordEventMap {
   'tool-workflow/run-end': ToolWorkflowRunEndData
 }
 
+// 中文：渲染已隔离的记录失败，不信任抛出值。
 /** Render a contained recording failure without trusting the thrown value. */
 function renderRecordingError(error: unknown): string {
   try {
@@ -65,6 +72,7 @@ function renderRecordingError(error: unknown): string {
   }
 }
 
+// 中文：把活动顶层工作流运行投影到父 Session，记录失败不得影响工具执行。
 /**
  * Project active top-level workflow runs into their parent Sessions without
  * letting recording failure affect tool execution.
@@ -76,6 +84,7 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
     type: Type,
     data: SessionEventMap[Type],
   ): boolean => {
+    // 中文：这四种包自有事件都只写日志；在此缩窄通用 append 接口，以满足 Session.append 的条件选项元组约束。
     // These four package-owned events are all log-only. Narrowing the generic
     // append face here discharges Session.append's conditional options tuple.
     const appendRecord = session.append.bind(session) as <Event extends keyof ToolWorkflowRecordEventMap>(
@@ -129,6 +138,7 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
   }
 }
 
+// 中文：嵌入工具描述的脚本编写契约，也是模型可见规范：meta 块、钩子精确语义及支持的 schema 子集。
 /**
  * The script-authoring contract, embedded in the tool description. This IS the
  * model-facing spec: the meta block, the hooks and their exact semantics, and
@@ -159,6 +169,7 @@ type WorkflowCallArgs = {
   args?: Record<string, unknown>
 }
 
+// 中文：待处理卡片：用工作流 meta 名称作标题的通用卡片。
 /** The pending-state card: a generic card titled by the workflow's meta name. */
 function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
   return {
@@ -168,6 +179,7 @@ function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
   }
 }
 
+// 中文：完成卡片：保留待处理标题，原样渲染结果内容。
 /** The completed-state card: keep the pending title; render the result content as-is. */
 function presentWorkflowResult(args: WorkflowCallArgs, result: { content: ContentBlock[]; isError: boolean }): ToolResultView {
   void args
@@ -175,6 +187,7 @@ function presentWorkflowResult(args: WorkflowCallArgs, result: { content: Conten
   return { card: 'generic' }
 }
 
+// 中文：非 completed 停止原因表示脚本未正常完成。
 /** A non-`completed` stop reason means the script did not finish cleanly. */
 function stopReasonError(result: WorkflowResult): string | undefined {
   switch (result.stopReason) {
@@ -184,15 +197,19 @@ function stopReasonError(result: WorkflowResult): string | undefined {
       return `workflow run was cancelled${result.error !== undefined ? ` (${result.error})` : ''}`
     case 'error':
       return `workflow run failed: ${result.error ?? 'unknown error'}`
+    // 中文：覆盖率忽略开始：WorkflowStopReason 为封闭联合，按构造穷尽；未来新增变体会在此明确失败。
     /* v8 ignore start -- defensive: WorkflowStopReason is a closed union, exhaustive by construction; a future variant fails here loudly */
     default:
       return `workflow run ended abnormally (${String(result.stopReason satisfies never)})`
+    // 中文：结束覆盖率忽略区间。
     /* v8 ignore stop */
   }
 }
 
+// 中文：渲染运行结果文本，含 meta 名称、智能体数量及有上限的 JSON 值。
 /** Render the run's outcome text: the meta name, agent count, and the JSON value (capped). */
 function renderResult(name: string, agentsStarted: number, value: JsonValue, maxChars: number): string {
+  // 中文：引擎返回 JSON 数据，无返回值脚本为 null，所以 stringify 不会产生 undefined。
   // The engine returns JSON data (null for a valueless script), so stringify never yields undefined.
   const rendered = JSON.stringify(value, null, 2)
   const clipped = rendered.length > maxChars
@@ -202,10 +219,12 @@ function renderResult(name: string, agentsStarted: number, value: JsonValue, max
 }
 
 export function apply(ctx: Context, config: Config): void {
+  // 中文：schemastery 导出的 Config schema 已填充默认字段，断言记录解析结果，不是隐藏回退。
   // schemastery (the exported Config schema) has already filled the defaulted
   // fields; the assertion records that resolution, not a hidden fallback.
   const { toolName, maxResultChars } = config as ResolvedConfig
   const recorder = createWorkflowRecorder(ctx)
+  // 中文：使用策略随工具发布：工具指导属于工具插件提示段落，不属于部署角色描述。
   // Usage policy ships with the tool (the master convention: tool guidance
   // lives in tool plugins as prompt sections, not in the deployment persona).
   ctx.systemPrompt.section({
@@ -271,12 +290,14 @@ export function apply(ctx: Context, config: Config): void {
     async execute(args, exec) {
       const parent = exec.agent
       if (!parent) {
+        // 中文：循环为每个模型驱动调用设置 exec.agent；缺失意味着非智能体调用方直接调用，无父级可归属子任务，应明确失败而非猜测。
         // The loop sets `exec.agent` for every model-driven call; its absence
         // means a non-agent caller invoked the tool directly, which has no
         // parent to attribute the children to. Fail loud rather than guess.
         throw new Error('workflow tool requires a calling agent (exec.agent was undefined)')
       }
 
+      // 中文：META_INVALID／SCRIPT_PARSE 等 meta 或脚本校验错误在此同步抛出，由注册表转为 isError，模型看到违规清单后可修正调用。
       // Meta/body validation failures (META_INVALID/SCRIPT_PARSE) throw
       // synchronously here and become isError results via the registry — the
       // model sees the violation list and can correct the call.
@@ -288,10 +309,12 @@ export function apply(ctx: Context, config: Config): void {
         signal: exec.signal,
       })
       const recordsRun = exec.parent === undefined
+      // 中文：已提供的 worker 引擎在后续消息中发布成员事件，此时 start() 已返回、运行记录已激活。
       // The shipped worker-thread engine publishes member events from later
       // worker messages, after start() returns and this run record is active.
       if (recordsRun) recorder.start(parent.session, run)
 
+      // 中文：把工具取消信号桥接到运行，父 step 在脚本运行中取消时取消整个运行。信号也直接进入引擎，但本地桥确保即使实现忽略它，工具契约仍成立。
       // Bridge the tool's abort signal to the run: if the parent step is aborted while the
       // script is in flight, cancel the whole run. The signal also enters the engine directly, but
       // this local bridge preserves the tool contract even if an implementation ignores it.
@@ -303,6 +326,7 @@ export function apply(ctx: Context, config: Config): void {
         result = await run.result
         const error = stopReasonError(result)
         if (error !== undefined) {
+          // 中文：非正常结束转为 isError，注册表负责把抛错变成错误结果。报告原因，不返回部分输出。
           // Map a non-clean finish to an isError result (the registry turns a
           // throw into an isError). Report the reason, not partial output.
           throw new Error(error)
@@ -315,10 +339,12 @@ export function apply(ctx: Context, config: Config): void {
       } finally {
         exec.signal.removeEventListener('abort', onAbort)
         try {
+          // 中文：释放期间仍保留成员监听器，因为引擎可能在达到静止过程中合成 cancelled 成员结束事件。
           // Keep member listeners alive through disposal: an engine may
           // synthesize cancelled member endings while reaching quiescence.
           await run.dispose()
           if (recordsRun) {
+            // 中文：覆盖率例外：WorkflowRun.result 按契约从不拒绝，所以 finally 前 result 已赋值。
             /* v8 ignore next -- WorkflowRun.result never rejects by contract, so result is assigned before finally. */
             if (result === undefined) throw new Error('workflow run settled without a result')
             recorder.finish(run.id, result.stopReason)
